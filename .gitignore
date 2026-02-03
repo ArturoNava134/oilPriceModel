@@ -1,0 +1,29 @@
+# Environment variables (NEVER commit real .env)
+.env
+.env.local
+.env.*.local
+
+# Data files (too large for git)
+*.csv
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.ipynb_checkpoints/
+venv/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
