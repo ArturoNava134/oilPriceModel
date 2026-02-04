@@ -1,6 +1,6 @@
 # Oil Price Risk Factor Analysis - Data Collection
 
-**Author:** Arturo  
+**Author:** Arturo.
 **Competition:** Citibank Oil Price Risk Factor Challenge
 
 ---
