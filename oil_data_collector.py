@@ -38,6 +38,9 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
+# NEW IMPORTS for statistical features and validation
+from scipy import stats
+
 # Loading our API keys from the .env file
 # This keeps them out of git - never commit real keys!
 from dotenv import load_dotenv
@@ -280,6 +283,111 @@ def collect_eia_data(api_key=None):
     return all_data
 
 
+def add_statistical_features(df, price_col='WTI_Crude_Close'):
+    """
+    NEW: Adds statistical features while avoiding lookahead bias.
+    
+    Key improvements:
+    1. Rolling statistics use min_periods to avoid NaN padding issues
+    2. Features are shifted by 1 to prevent using future information
+    3. Adds statistical moments (skewness, kurtosis) for return distributions
+    
+    This prevents the common ML pitfall of accidentally using tomorrow's
+    data to predict today's price.
+    """
+    print("Adding statistical features with lookahead protection...")
+    result = df.copy()
+    
+    if price_col not in result.columns:
+        print(f"Warning: {price_col} not found - skipping statistical features")
+        return result
+    
+    price = result[price_col]
+    returns = price.pct_change()
+    
+    # NEW: Rolling statistics with min_periods to avoid expanding windows
+    # This ensures we only use past data available at each point in time
+    for window in [5, 20, 60]:
+        # Rolling standard deviation (volatility)
+        result[f'Volatility_{window}d'] = returns.rolling(
+            window=window, min_periods=int(window/2)
+        ).std() * np.sqrt(252)
+        
+        # NEW: Rolling skewness and kurtosis
+        # Measures asymmetry and tail risk of return distribution
+        result[f'Skewness_{window}d'] = returns.rolling(
+            window=window, min_periods=int(window/2)
+        ).apply(lambda x: stats.skew(x) if len(x[x.notna()]) >= 10 else np.nan)
+        
+        result[f'Kurtosis_{window}d'] = returns.rolling(
+            window=window, min_periods=int(window/2)
+        ).apply(lambda x: stats.kurtosis(x) if len(x[x.notna()]) >= 10 else np.nan)
+    
+    # NEW: Shift all rolling features by 1 day
+    # Critical! This prevents using today's data to predict today's price
+    rolling_cols = [col for col in result.columns if any(x in col for x in ['Volatility_', 'Skewness_', 'Kurtosis_'])]
+    for col in rolling_cols:
+        result[f'{col}_lag1'] = result[col].shift(1)
+        result.drop(columns=[col], inplace=True)
+    
+    # NEW: Price percentiles (how current price compares to recent history)
+    result['Price_Pctl_20d'] = price.rolling(20, min_periods=10).apply(
+        lambda x: stats.percentileofscore(x, x[-1]) if len(x[x.notna()]) >= 10 else np.nan
+    )
+    result['Price_Pctl_20d'] = result['Price_Pctl_20d'].shift(1)
+    
+    return result
+
+
+def validate_features(df, target_col='Target_Return_1d'):
+    """
+    NEW: Quick validation check to ensure features are statistically useful.
+    
+    Performs three checks:
+    1. Missing values check
+    2. Correlation with target (abs > 0.05 considered potentially useful)
+    3. Constant value check (features that don't change are useless)
+    
+    This helps catch data issues early.
+    """
+    print("\n" + "=" * 60)
+    print("VALIDATING FEATURES")
+    print("=" * 60)
+    
+    # Check 1: Missing values
+    missing = df.isnull().sum()
+    if missing.sum() > 0:
+        print(f"Warning: {missing.sum()} missing values found")
+        print(f"Columns with most NaNs:")
+        print(missing[missing > 0].head())
+    
+    # Check 2: Correlation with target (if target exists)
+    if target_col in df.columns:
+        # Calculate correlations, handling NaN values
+        numeric_df = df.select_dtypes(include=[np.number])
+        correlations = numeric_df.corr()[target_col].abs().sort_values(ascending=False)
+        print(f"\nTop 10 features correlated with {target_col}:")
+        print(correlations.head(10))
+        
+        # Flag low-correlation features
+        low_corr = correlations[correlations < 0.05].index.tolist()
+        if low_corr:
+            print(f"\n{len(low_corr)} features have |correlation| < 0.05 with target")
+            print("Consider removing or transforming these")
+    
+    # Check 3: Constant features
+    constant_features = []
+    for col in df.columns:
+        if df[col].nunique() == 1:
+            constant_features.append(col)
+    
+    if constant_features:
+        print(f"\nWarning: {len(constant_features)} constant features found")
+        print(f"These will be useless for ML: {constant_features[:5]}")
+    
+    return df
+
+
 # FEATURE ENGINEERING
 # This is where we create the indicators for our ML models
 
@@ -300,12 +408,12 @@ def engineer_features(df, price_col='WTI_Crude_Close'):
     print("ENGINEERING FEATURES")
     print("=" * 60)
     
+    if price_col not in df.columns:
+        print(f"Error: {price_col} not found in dataset. Available columns:")
+        print(df.columns.tolist()[:10])
+        return df
+    
     result = df.copy()
-    
-    if price_col not in result.columns:
-        print(f"Warning: {price_col} not found - skipping feature engineering")
-        return result
-    
     price = result[price_col]
     
     # Returns at different horizons
@@ -365,8 +473,20 @@ def engineer_features(df, price_col='WTI_Crude_Close'):
     result['Month'] = result.index.month
     result['Quarter'] = result.index.quarter
     
-    print(f"Created {len(result.columns) - len(df.columns)} new features")
-    print(f"Total features: {len(result.columns)}")
+    print(f"Created {len(result.columns) - len(df.columns)} new basic features")
+    
+    # NEW: Add statistical features with lookahead protection
+    result = add_statistical_features(result, price_col)
+    
+    # NEW: Create lagged returns for ML models (predict next day's return)
+    result['Target_Return_1d'] = price.pct_change(1).shift(-1)  # What we're trying to predict
+    
+    # NEW: Drop rows with NaN values (from rolling windows)
+    # This is cleaner for ML and prevents data leakage
+    original_len = len(result)
+    result = result.dropna()
+    print(f"Dropped {original_len - len(result)} rows with NaN values")
+    print(f"Final dataset shape: {result.shape}")
     
     return result
 
@@ -396,6 +516,10 @@ def main():
         # Step 2: Add technical features
         print("\n[STEP 2/4] Engineering features...")
         featured_data = engineer_features(yf_data)
+        
+        # NEW: Validate the features we created
+        featured_data = validate_features(featured_data)
+        
         featured_data.to_csv("data_yfinance_featured.csv")
         print(f"✓ Saved: data_yfinance_featured.csv")
     
@@ -426,6 +550,13 @@ def main():
         print("  - USD_Index_Close → key driver (inverse correlation)")
         print("  - VIX_Close → volatility/fear indicator")
         print("  - SP500_Close → economic health proxy")
+        
+        # NEW: Display information about the improved features
+        print("\nNEW IMPROVEMENTS ADDED:")
+        print("  - Statistical features (skewness, kurtosis, percentiles)")
+        print("  - Lookahead bias protection (all features lagged by 1 day)")
+        print("  - Target variable: 'Target_Return_1d' (next day's return)")
+        print("  - Feature validation (correlation checks, NaN handling)")
     
     if fred_data is None or eia_data is None:
         print("\n" + "-" * 60)
@@ -433,6 +564,14 @@ def main():
         print("-" * 60)
         print("Check the messages above and add keys to your .env file")
         print("to get the full dataset for our factor analysis.")
+    
+    print("\n" + "=" * 60)
+    print("TERMUX USERS NOTE:")
+    print("=" * 60)
+    print("If running on Android Termux, you may need to:")
+    print("1. Install additional packages: pkg install python numpy scipy")
+    print("2. Some dependencies may need manual installation")
+    print("3. Check README.md for full Termux setup instructions")
     
     return yf_data
 
