@@ -6,6 +6,7 @@
 # Data files (too large for git)
 *.csv
 data/
+/news_output/
 
 # Python
 __pycache__/
