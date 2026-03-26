@@ -8,6 +8,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+//db
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
+
+const JWT_SECRET = process.env.JWT_SECRET || 'oil-risk-terminal-secret-2026';
+
+const db = mysql.createPool({
+  host:     process.env.DB_HOST || 'localhost',
+  user:     process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'oil_risk_terminal',
+  waitForConnections: true,
+  connectionLimit: 5,
+});
+
+
+(async () => {
+  try {
+    const conn = await db.getConnection();
+    console.log('  ✓ MySQL connected');
+    conn.release();
+  } catch (e) {
+    console.error('  ✗ MySQL connection failed:', e.message);
+    console.error('    Check your .env DB_HOST/DB_USER/DB_PASSWORD/DB_NAME');
+  }
+})();
+
 // ── Paths ────────────────────────────────────────────
 // Everything is relative to backend/
 const PYTHON_DIR = path.join(__dirname, 'python');
@@ -197,6 +227,151 @@ function getLatestPrice() {
 }
 
 // ── API Routes ───────────────────────────────────────
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password } = req.body;
+ 
+  // Validation
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+ 
+  try {
+    // Check if email exists
+    const [existing] = await db.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [email.toLowerCase()]
+    );
+ 
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+ 
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+ 
+    // Insert user
+    const [result] = await db.execute(
+      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+      [name, email.toLowerCase(), hashedPassword]
+    );
+ 
+    const userId = result.insertId;
+ 
+    // Generate JWT
+    const token = jwt.sign(
+      { id: userId, email: email.toLowerCase(), name },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+ 
+    console.log(`  [AUTH] Registered: ${email}`);
+ 
+    res.status(201).json({
+      token,
+      user: { id: userId, name, email: email.toLowerCase() },
+    });
+ 
+  } catch (e) {
+    console.error('  [AUTH] Register error:', e.message);
+    res.status(500).json({ error: 'Server error during registration' });
+  }
+});
+ 
+ 
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+ 
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+ 
+  try {
+    const [rows] = await db.execute(
+      'SELECT id, name, email, password FROM users WHERE email = ?',
+      [email.toLowerCase()]
+    );
+ 
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+ 
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+ 
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+ 
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+ 
+    console.log(`  [AUTH] Login: ${user.email}`);
+ 
+    res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email },
+    });
+ 
+  } catch (e) {
+    console.error('  [AUTH] Login error:', e.message);
+    res.status(500).json({ error: 'Server error during login' });
+  }
+});
+ 
+ 
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  try {
+    const token = authHeader.split(' ')[1];
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (e) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+// Verify token / get current user
+app.get('/api/auth/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+ 
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+ 
+    // Optionally verify user still exists in DB
+    const [rows] = await db.execute(
+      'SELECT id, name, email FROM users WHERE id = ?',
+      [decoded.id]
+    );
+ 
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'User no longer exists' });
+    }
+ 
+    res.json({ user: rows[0] });
+  } catch (e) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+});
 
 // Main endpoint — everything the dashboard needs
 app.get('/api/state', (req, res) => {
