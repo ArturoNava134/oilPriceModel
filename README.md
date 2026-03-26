@@ -148,6 +148,19 @@ EIA_API_KEY=your_eia_key_here
 # NewsAPI Key (optional — more headlines from more sources)
 # Get yours free at: https://newsapi.org/register
 NEWS_API_KEY=your_newsapi_key_here
+
+# ── Database (MySQL) ───────────────────────────────
+
+DB_HOST=""
+DB_PORT=''
+DB_USER=your_user
+DB_PASSWORD=your_mysql_password
+DB_NAME=oil_risk_terminal
+
+# ── Auth ───────────────────────────────────────────
+
+# Secret key for signing JWT tokens (change this to something random)
+JWT_SECRET=change-this-to-a-random-string-at-least-32-chars
 ```
 
 Replace the placeholder values with your actual keys. If you don't have a key yet, just leave the placeholder — the system skips that data source and tells you what's missing.
