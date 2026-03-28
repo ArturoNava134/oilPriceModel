@@ -13,7 +13,6 @@ modify any other project files. All outputs go to:
     Normal mode → data/news/
     Live mode   → data/news_live/
 
-Author: Arturo
 """
 
 import os, re, sys, json, time, signal, hashlib, logging, argparse

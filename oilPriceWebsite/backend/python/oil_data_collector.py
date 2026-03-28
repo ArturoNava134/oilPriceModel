@@ -11,7 +11,6 @@ HOW TO RUN:
 2. pip install -r requirements.txt
 3. python oil_data_collector.py
 
-Author: Arturo
 """
 
 import os

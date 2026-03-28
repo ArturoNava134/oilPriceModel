@@ -6,7 +6,6 @@ Citibank Oil Price Risk Factor Challenge
 ONE COMMAND, ALWAYS ON:
   python monitor.py
 
-Author: Arturo
 """
 
 import os, sys, json, time, signal, argparse, logging, re

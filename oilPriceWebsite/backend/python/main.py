@@ -8,7 +8,6 @@ Citibank Oil Price Risk Factor Challenge
   python main.py --skip-news      → skip news scraping
   python main.py --report-only    → just regenerate report
 
-Author: Arturo
 """
 
 import os, sys, argparse
