@@ -33,7 +33,7 @@ def run_data_collector():
         from oil_data_collector import main as collect_data
         collect_data(); return True
     except Exception as e:
-        print(f"  ✗ ERROR: {e}"); return False
+        print(f"  [ERROR]: {e}"); return False
 
 
 def run_news_scraper():
@@ -42,14 +42,14 @@ def run_news_scraper():
         from news_scraper import main_normal
         main_normal(); return True
     except Exception as e:
-        print(f"  ✗ ERROR: {e}"); return False
+        print(f"  [ERROR]: {e}"); return False
 
 
 def load_price_data():
     if not PATHS.price_featured.exists():
-        print(f"  ✗ {PATHS.price_featured} not found"); return None
+        print(f"  [ERROR] {PATHS.price_featured} not found"); return None
     df = pd.read_csv(str(PATHS.price_featured), index_col=0, parse_dates=True)
-    print(f"  ✓ Price data: {df.shape[0]} rows, {df.index.min().date()} → {df.index.max().date()}")
+    print(f" Price data: {df.shape[0]} rows, {df.index.min().date()} -> {df.index.max().date()}")
     return df
 
 
@@ -57,10 +57,10 @@ def load_news_data():
     scored, daily = None, None
     if PATHS.news_scored.exists():
         scored = pd.read_csv(str(PATHS.news_scored)); scored["date"] = pd.to_datetime(scored["date"])
-        print(f"  ✓ News headlines: {len(scored)} scored")
+        print(f"  News headlines: {len(scored)} scored")
     if PATHS.news_daily.exists():
         daily = pd.read_csv(str(PATHS.news_daily), index_col=0, parse_dates=True)
-        print(f"  ✓ Daily sentiment: {len(daily)} days")
+        print(f"  Daily sentiment: {len(daily)} days")
     return scored, daily
 
 
@@ -109,27 +109,27 @@ def analyze_news_data(scored_df, daily_df):
 
 def generate_final_report(pi, ni):
     L = []; w = L.append
-    w("╔"+"═"*68+"╗"); w("║"+"  OIL PRICE RISK FACTOR ANALYSIS — FINAL REPORT".center(68)+"║")
-    w("║"+f"  {datetime.now():%Y-%m-%d %H:%M:%S}".center(68)+"║"); w("╚"+"═"*68+"╝")
+    w("+"+"="*68+"+"); w("|"+"  OIL PRICE RISK FACTOR ANALYSIS -- FINAL REPORT".center(68)+"|")
+    w("|"+f"  {datetime.now():%Y-%m-%d %H:%M:%S}".center(68)+"|"); w("+"+"="*68+"+")
 
-    w(f"\n{'━'*70}\n  1. EXECUTIVE SUMMARY\n{'━'*70}")
+    w(f"\n{'-'*70}\n  1. EXECUTIVE SUMMARY\n{'-'*70}")
     w("\n  This report combines price analysis (60+ indicators) with news sentiment")
     w("  (hundreds of headlines) to answer: what drives oil prices right now?\n")
 
     if "current_price" in pi:
-        w(f"{'━'*70}\n  2. CURRENT STATE\n{'━'*70}")
+        w(f"{'-'*70}\n  2. CURRENT STATE\n{'-'*70}")
         w(f"\n  WTI: ${pi['current_price']} ({pi['price_date']})")
         w(f"  Day: {pi.get('return_1d',0):+.2f}%  Week: {pi.get('return_5d',0):+.2f}%  Month: {pi.get('return_20d',0):+.2f}%")
 
-    w(f"\n{'━'*70}\n  3. TECHNICAL ANALYSIS\n{'━'*70}")
+    w(f"\n{'-'*70}\n  3. TECHNICAL ANALYSIS\n{'-'*70}")
     if "trend" in pi: w(f"\n  Trend: {pi['trend']}")
     if "rsi" in pi: w(f"  RSI: {pi['rsi']} ({pi['rsi_assessment']})")
     if "volatility_20d" in pi: w(f"  Volatility: {pi['volatility_20d']}% ({pi['vol_assessment']})")
 
     if "total_headlines" in ni:
-        w(f"\n{'━'*70}\n  4. NEWS SENTIMENT\n{'━'*70}")
+        w(f"\n{'-'*70}\n  4. NEWS SENTIMENT\n{'-'*70}")
         t=ni["total_headlines"]; b=ni["bullish_count"]; be=ni["bearish_count"]
-        w(f"\n  {t} headlines: 🟢{b} bullish, 🔴{be} bearish")
+        w(f"\n  {t} headlines: [bull]{b} bullish, [bear]{be} bearish")
         w(f"  Overall score: {ni['overall_score']:+.3f}")
 
     # Conclusion
@@ -141,17 +141,17 @@ def generate_final_report(pi, ni):
     if "overall_score" in ni:
         a=ni["overall_score"]; signals.append(f"News: {a:+.3f}"); scores.append(1 if a>0.1 else (-1 if a<-0.1 else 0))
 
-    w(f"\n{'━'*70}\n  5. CONCLUSION\n{'━'*70}")
-    for s in signals: w(f"  • {s}")
+    w(f"\n{'-'*70}\n  5. CONCLUSION\n{'-'*70}")
+    for s in signals: w(f"  - {s}")
     if scores:
         avg = np.mean(scores)
-        if avg>0.3: w("\n  ➤ OUTLOOK: BULLISH")
-        elif avg<-0.3: w("\n  ➤ OUTLOOK: BEARISH")
-        elif avg>0: w("\n  ➤ OUTLOOK: SLIGHTLY BULLISH")
-        elif avg<0: w("\n  ➤ OUTLOOK: SLIGHTLY BEARISH")
-        else: w("\n  ➤ OUTLOOK: NEUTRAL / MIXED")
+        if avg>0.3: w("\n  >> OUTLOOK: BULLISH")
+        elif avg<-0.3: w("\n  >> OUTLOOK: BEARISH")
+        elif avg>0: w("\n  >> OUTLOOK: SLIGHTLY BULLISH")
+        elif avg<0: w("\n  >> OUTLOOK: SLIGHTLY BEARISH")
+        else: w("\n  >> OUTLOOK: NEUTRAL / MIXED")
 
-    w(f"\n{'━'*70}\n  Generated: {datetime.now():%Y-%m-%d %H:%M:%S}\n{'━'*70}")
+    w(f"\n{'-'*70}\n  Generated: {datetime.now():%Y-%m-%d %H:%M:%S}\n{'-'*70}")
     return "\n".join(L)
 
 
@@ -165,13 +165,13 @@ def main():
     ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("╔"+"═"*68+"╗"); print("║"+"  OIL PRICE RISK FACTOR ANALYSIS".center(68)+"║"); print("╚"+"═"*68+"╝")
+    print("+"+"="*68+"+"); print("|"+"  OIL PRICE RISK FACTOR ANALYSIS".center(68)+"|"); print("+"+"="*68+"+")
 
     if not args.skip_data and not args.report_only: run_data_collector()
-    else: print("\n  ⏭  Skipping data collection")
+    else: print("\n   Skipping data collection")
 
     if not args.skip_news and not args.report_only: run_news_scraper()
-    else: print("\n  ⏭  Skipping news scraping")
+    else: print("\n   Skipping news scraping")
 
     print("\n" + "=" * 70 + "\n  LOADING RESULTS\n" + "=" * 70)
     price_df = load_price_data(); news_scored, news_daily = load_news_data()
@@ -181,7 +181,7 @@ def main():
 
     report = generate_final_report(pi, ni)
     with open(str(PATHS.analysis_report), "w") as f: f.write(report)
-    print(f"\n  ✓ {PATHS.analysis_report}")
+    print(f"\n  {PATHS.analysis_report}")
 
     summary = {"timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         **{k:v for k,v in pi.items() if not isinstance(v,(list,dict))},
@@ -189,7 +189,7 @@ def main():
     pd.DataFrame([summary]).to_csv(str(PATHS.analysis_summary), index=False)
 
     print("\n" + report)
-    print(f"\n{'═'*70}\n  DONE — {ANALYSIS_DIR}/\n{'═'*70}")
+    print(f"\n{'='*70}\n  DONE -- {ANALYSIS_DIR}/\n{'='*70}")
 
 if __name__ == "__main__":
     main()

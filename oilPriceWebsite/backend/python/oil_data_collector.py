@@ -71,11 +71,11 @@ def collect_yfinance_data(start_date="2015-01-01", end_date=None):
                 df = data[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
                 df.columns = [f"{name}_{col}" for col in df.columns]
                 all_data[name] = df
-                print(f"  ✓ Got {len(df)} rows")
+                print(f"  Got {len(df)} rows")
             else:
-                print(f"  ✗ No data returned")
+                print(f"  No data returned")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            print(f"  Error: {e}")
 
     if all_data:
         combined = pd.concat(all_data.values(), axis=1)
@@ -129,11 +129,11 @@ def collect_fred_data(api_key=None, start_date="2015-01-01"):
             data = fred.get_series(series_id, observation_start=start_date)
             if len(data) > 0:
                 all_data[name] = data
-                print(f"  ✓ Got {len(data)} observations")
+                print(f"  Got {len(data)} observations")
             else:
-                print(f"  ✗ No data")
+                print(f"  No data")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            print(f"  Error: {e}")
 
     if all_data:
         combined = pd.DataFrame(all_data)
@@ -179,11 +179,11 @@ def collect_eia_data(api_key=None):
                 if 'response' in data and 'data' in data['response']:
                     df = pd.DataFrame(data['response']['data'])
                     all_data[description] = df
-                    print(f"  ✓ Got {len(df)} records")
+                    print(f"  Got {len(df)} records")
             else:
-                print(f"  ✗ Error: {response.status_code}")
+                print(f"  Error: {response.status_code}")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            print(f"  Error: {e}")
 
     return all_data
 
@@ -338,7 +338,7 @@ def main():
 
     if yf_data is not None:
         yf_data.to_csv(str(PATHS.price_raw))
-        print(f"\n✓ Saved: {PATHS.price_raw}")
+        print(f"\n Saved: {PATHS.price_raw}")
 
         # Step 2: Add technical features
         print("\n[STEP 2/4] Engineering features...")
@@ -346,7 +346,7 @@ def main():
         featured_data = validate_features(featured_data)
 
         featured_data.to_csv(str(PATHS.price_featured))
-        print(f"✓ Saved: {PATHS.price_featured}")
+        print(f" Saved: {PATHS.price_featured}")
 
     # Step 3: FRED and EIA
     print("\n[STEP 3/4] Checking additional data sources...")
@@ -355,7 +355,7 @@ def main():
 
     if fred_data is not None:
         fred_data.to_csv(str(PATHS.fred))
-        print(f"✓ Saved: {PATHS.fred}")
+        print(f" Saved: {PATHS.fred}")
 
     # Step 4: Summary
     print("\n" + "=" * 60)

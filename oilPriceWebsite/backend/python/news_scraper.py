@@ -44,7 +44,7 @@ REQUEST_DELAY = 1.5
 RSS_QUERIES = ["crude oil price","OPEC oil production","oil supply demand","WTI Brent crude","oil sanctions geopolitical"]
 
 def setup_logging(log_path=None):
-    p = log_path or PATHS.news_log  # CHANGED: was OUT_DIR / "scraper.log"
+    p = log_path or PATHS.news_log
     p.parent.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("news_scraper"); logger.setLevel(logging.INFO); logger.handlers.clear()
     fmt = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S")
@@ -53,9 +53,9 @@ def setup_logging(log_path=None):
     return logger
 log = setup_logging()
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # SCRAPERS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 import requests; from bs4 import BeautifulSoup
 
 def _safe_get(url, timeout=15):
@@ -67,10 +67,10 @@ def _safe_get(url, timeout=15):
     except Exception as e: return None, str(e)
 
 def scrape_google_news_rss(query="crude oil price", max_items=40):
-    log.info(f"  Google News RSS  →  query: '{query}'")
+    log.info(f"  Google News RSS  ->  query: '{query}'")
     headlines = []
     resp, err = _safe_get(f"https://news.google.com/rss/search?q={query.replace(' ','+')}&hl=en-US&gl=US&ceid=US:en")
-    if err: log.warning(f"    ✗ {err}"); return headlines
+    if err: log.warning(f"    [ERROR] {err}"); return headlines
     soup = BeautifulSoup(resp.text, "xml")
     for item in soup.find_all("item")[:max_items]:
         title = item.find("title"); pub = item.find("pubDate"); src = item.find("source"); link = item.find("link")
@@ -80,50 +80,50 @@ def scrape_google_news_rss(query="crude oil price", max_items=40):
             try: dt = datetime.strptime(pub.text.strip(), "%a, %d %b %Y %H:%M:%S %Z"); date_str = dt.strftime("%Y-%m-%d"); dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
             except ValueError: pass
         headlines.append({"headline": title.text.strip(), "date": date_str, "datetime": dt_str, "source": src.text.strip() if src else "google_news", "url": link.text.strip() if link else ""})
-    log.info(f"    ✓ {len(headlines)} headlines"); return headlines
+    log.info(f"    [OK] {len(headlines)} headlines"); return headlines
 
 def scrape_newsapi(query="crude oil", days_back=14, page_size=100):
-    if not NEWS_API_KEY: log.info("  NewsAPI           →  skipped (no key)"); return []
-    log.info(f"  NewsAPI           →  query: '{query}', {days_back}d")
+    if not NEWS_API_KEY: log.info("  NewsAPI           ->  skipped (no key)"); return []
+    log.info(f"  NewsAPI           ->  query: '{query}', {days_back}d")
     headlines = []
     try:
         resp = requests.get("https://newsapi.org/v2/everything", params={"q":query,"from":(datetime.now()-timedelta(days=days_back)).strftime("%Y-%m-%d"),"sortBy":"relevancy","language":"en","pageSize":page_size,"apiKey":NEWS_API_KEY}, timeout=15)
         data = resp.json()
-        if data.get("status") != "ok": log.warning(f"    ✗ {data.get('message','')}"); return headlines
+        if data.get("status") != "ok": log.warning(f"    [ERROR] {data.get('message','')}"); return headlines
         for a in data.get("articles",[]):
             headlines.append({"headline":a.get("title",""),"description":a.get("description",""),"date":a.get("publishedAt","")[:10],"datetime":a.get("publishedAt","")[:19].replace("T"," "),"source":a.get("source",{}).get("name","newsapi"),"url":a.get("url","")})
-        log.info(f"    ✓ {len(headlines)} articles")
-    except Exception as e: log.warning(f"    ✗ {e}")
+        log.info(f"    [OK] {len(headlines)} articles")
+    except Exception as e: log.warning(f"    [ERROR] {e}")
     return headlines
 
 def scrape_reuters():
-    log.info("  Reuters Energy    →  scraping"); headlines = []
+    log.info("  Reuters Energy    ->  scraping"); headlines = []
     resp, err = _safe_get("https://www.reuters.com/business/energy/")
-    if err: log.warning(f"    ✗ {err}"); return headlines
+    if err: log.warning(f"    [ERROR] {err}"); return headlines
     soup = BeautifulSoup(resp.text, "html.parser"); seen = set()
     for tag in ["h3","a"]:
         for el in soup.find_all(tag):
             t = el.get_text(strip=True)
             if 20 < len(t) < 300 and t not in seen: seen.add(t); headlines.append({"headline":t,"date":datetime.now().strftime("%Y-%m-%d"),"datetime":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),"source":"reuters","url":""})
-    log.info(f"    ✓ {len(headlines)} headlines"); return headlines
+    log.info(f"    [OK] {len(headlines)} headlines"); return headlines
 
 def scrape_oilprice(max_pages=3):
-    log.info(f"  OilPrice.com      →  {max_pages} pages"); headlines = []; seen = set()
+    log.info(f"  OilPrice.com      ->  {max_pages} pages"); headlines = []; seen = set()
     for page in range(1, max_pages+1):
         url = "https://oilprice.com/Latest-Energy-News/World-News/" if page == 1 else f"https://oilprice.com/Latest-Energy-News/World-News/{page}"
         resp, err = _safe_get(url)
-        if err: log.warning(f"    ✗ page {page}: {err}"); continue
+        if err: log.warning(f"    [ERROR] page {page}: {err}"); continue
         for a in BeautifulSoup(resp.text,"html.parser").find_all("a",href=True):
             t, h = a.get_text(strip=True), a["href"]
             if 25 < len(t) < 300 and "/Article/" in h and t not in seen: seen.add(t); headlines.append({"headline":t,"date":datetime.now().strftime("%Y-%m-%d"),"datetime":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),"source":"oilprice","url":h if h.startswith("http") else f"https://oilprice.com{h}"})
         if page < max_pages: time.sleep(REQUEST_DELAY)
-    log.info(f"    ✓ {len(headlines)} headlines"); return headlines
+    log.info(f"    [OK] {len(headlines)} headlines"); return headlines
 
 def scrape_all():
-    log.info("─"*55); log.info("SCRAPING NEWS SOURCES"); log.info("─"*55)
+    log.info("-"*55); log.info("SCRAPING NEWS SOURCES"); log.info("-"*55)
     CACHE_DIR.mkdir(parents=True, exist_ok=True); cache_file = CACHE_DIR / f"headlines_{datetime.now():%Y%m%d}.json"
     if cache_file.exists():
-        log.info(f"Cache hit → {cache_file.name}")
+        log.info(f"Cache hit -> {cache_file.name}")
         with open(cache_file) as f: cached = json.load(f)
         log.info(f"Loaded {len(cached)} cached headlines"); return cached
     raw = []
@@ -136,11 +136,11 @@ def scrape_all():
         if fp not in seen and len(h["headline"]) > 15: seen.add(fp); unique.append(h)
     log.info(f"\nTotal unique headlines: {len(unique)}")
     with open(cache_file, "w") as f: json.dump(unique, f, indent=2)
-    log.info(f"Cached → {cache_file.name}"); return unique
+    log.info(f"Cached -> {cache_file.name}"); return unique
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # SENTIMENT CLASSIFIERS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 _POS = {'surge','surges','surging','rally','rallies','rallying','jump','jumps','jumping','soar','soars','soaring','climb','climbs','climbing','gain','gains','gaining','rise','rises','rising','spike','spikes','spiking','rebound','rebounds','recover','recovers','recovery','bullish','boom','booming','uptick','upswing','high','higher','highest','record','shortage','shortfall','deficit','tight','tighten','cut','cuts','cutting','reduce','reduction','drawdown','draw','sanctions','embargo','disruption','disruptions','outage','growth','expanding','strong','robust','optimism','optimistic','confidence'}
 _NEG = {'fall','falls','falling','drop','drops','dropping','decline','declines','declining','plunge','plunges','crash','crashes','crashing','tumble','tumbles','slide','slides','sliding','sink','sinks','sinking','slump','slumps','plummet','plummets','bearish','downturn','selloff','sell-off','low','lower','lowest','weak','weaker','surplus','glut','oversupply','overproduction','build','buildup','build-up','flood','flooding','excess','slowdown','recession','contraction','weakness','slowing','fear','fears','concern','concerns','worry','worries','uncertainty','volatile','volatility','risk','risks','war','conflict','tension','tensions','crisis','pressure','pressuring'}
 _NEGATE = {'not','no','never','neither','nor','barely','hardly'}
@@ -207,19 +207,19 @@ def classify_vader(text):
         return round(classify_vader._sia.polarity_scores(text)["compound"], 3)
     except ImportError: return None
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # CLASSIFICATION PIPELINE
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 def _label(score):
     if score > 0.05: return "bullish"
     if score < -0.05: return "bearish"
     return "neutral"
 
 def classify_all(headlines):
-    log.info("─"*55); log.info("CLASSIFYING HEADLINES"); log.info("─"*55)
+    log.info("-"*55); log.info("CLASSIFYING HEADLINES"); log.info("-"*55)
     vec, clf = _build_tfidf_model(); log.info("  TF-IDF model trained")
     has_vader = classify_vader("test") is not None
-    log.info(f"  VADER {'available ✓' if has_vader else 'unavailable'}")
+    log.info(f"  VADER {'available [OK]' if has_vader else 'unavailable'}")
     rows = []
     for i, h in enumerate(headlines):
         text = h["headline"]; d = classify_dictionary(text); r = classify_rulebased(text); m = classify_tfidf(text, vec, clf)
@@ -239,11 +239,11 @@ def classify_all(headlines):
     for l in ["bullish","neutral","bearish"]: n = lc.get(l,0); log.info(f"    {l:>8s}  {n:>4d}  ({n/len(df)*100:5.1f}%)")
     log.info(f"    avg score: {df['consensus_score'].mean():+.3f}"); return df
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # DAILY AGGREGATION
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 def build_daily_index(scored_df):
-    log.info("─"*55); log.info("BUILDING DAILY SENTIMENT INDEX"); log.info("─"*55)
+    log.info("-"*55); log.info("BUILDING DAILY SENTIMENT INDEX"); log.info("-"*55)
     df = scored_df.copy()
     daily = df.groupby("date").agg(mean_sentiment=("consensus_score","mean"),median_sentiment=("consensus_score","median"),sentiment_std=("consensus_score","std"),max_sentiment=("consensus_score","max"),min_sentiment=("consensus_score","min"),headline_count=("consensus_score","count"),bullish_pct=("consensus_label",lambda x:(x=="bullish").mean()),bearish_pct=("consensus_label",lambda x:(x=="bearish").mean()),neutral_pct=("consensus_label",lambda x:(x=="neutral").mean())).round(4)
     daily["sentiment_std"] = daily["sentiment_std"].fillna(0)
@@ -252,21 +252,21 @@ def build_daily_index(scored_df):
     daily["sentiment_ma3"] = daily["mean_sentiment"].rolling(3, min_periods=1).mean().round(4)
     daily.index.name = "date"
     log.info(f"  {len(daily)} trading days")
-    log.info(f"  {daily.index.min().date()} → {daily.index.max().date()}")
+    log.info(f"  {daily.index.min().date()} -> {daily.index.max().date()}")
     return daily
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # VISUALIZATIONS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 PAL = {"bullish":"#27ae60","neutral":"#7f8c8d","bearish":"#e74c3c"}
 
 def _save(fig, name):
     fig.savefig(PLOT_DIR/name, dpi=170, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    log.info(f"    ✓ {name}")
+    log.info(f"    [OK] {name}")
 
 def generate_plots(scored_df, daily_df):
-    log.info("─"*55); log.info("GENERATING PLOTS"); log.info("─"*55)
+    log.info("-"*55); log.info("GENERATING PLOTS"); log.info("-"*55)
     PLOT_DIR.mkdir(parents=True, exist_ok=True); sns.set_style("whitegrid")
     methods = ["dict_score","rulebased_score","tfidf_score"]; names = ["Dictionary","Rule-Based","TF-IDF ML"]
     if "vader_score" in scored_df.columns: methods.append("vader_score"); names.append("VADER")
@@ -290,7 +290,7 @@ def generate_plots(scored_df, daily_df):
     matrix.columns = names+["Consensus"]
     fig, ax = plt.subplots(figsize=(10,max(6,len(matrix)*0.35)))
     sns.heatmap(matrix,annot=True,fmt=".2f",cmap="RdYlGn",center=0,vmin=-1,vmax=1,linewidths=.4,ax=ax,cbar_kws={"label":"Sentiment Score"})
-    ax.set_title("Top Bullish & Bearish Headlines — All Methods",fontweight="bold",fontsize=12)
+    ax.set_title("Top Bullish & Bearish Headlines -- All Methods",fontweight="bold",fontsize=12)
     ax.tick_params(axis="y",labelsize=7)
     _save(fig,"02_headline_heatmap.png")
 
@@ -340,52 +340,52 @@ def generate_plots(scored_df, daily_df):
     colors = [PAL["bullish"] if v>0.05 else PAL["bearish"] if v<-0.05 else PAL["neutral"] for v in src_sent.values]
     ax2.barh(src_sent.index,src_sent.values,color=colors,alpha=.8)
     ax2.axvline(0,color="black",lw=.8); ax2.set_xlabel("Avg Sentiment Score")
-    ax2.set_title("Avg Sentiment by Source (≥2 headlines)",fontweight="bold")
+    ax2.set_title("Avg Sentiment by Source (>=2 headlines)",fontweight="bold")
     ax2.invert_yaxis(); ax2.tick_params(axis="y",labelsize=9)
     fig.tight_layout(); _save(fig,"05_source_breakdown.png")
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # REPORT
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 def generate_report(scored_df, daily_df):
-    log.info("─"*55); log.info("GENERATING REPORT"); log.info("─"*55)
+    log.info("-"*55); log.info("GENERATING REPORT"); log.info("-"*55)
     L = []; w = L.append
-    w("="*65); w("  OIL NEWS SENTIMENT ANALYSIS — REPORT"); w(f"  {datetime.now():%Y-%m-%d %H:%M:%S}"); w("="*65)
+    w("="*65); w("  OIL NEWS SENTIMENT ANALYSIS -- REPORT"); w(f"  {datetime.now():%Y-%m-%d %H:%M:%S}"); w("="*65)
     w(f"\n  Headlines analyzed : {len(scored_df)}")
-    w(f"  Date range         : {scored_df['date'].min():%Y-%m-%d} → {scored_df['date'].max():%Y-%m-%d}")
+    w(f"  Date range         : {scored_df['date'].min():%Y-%m-%d} -> {scored_df['date'].max():%Y-%m-%d}")
     w(f"  Sources            : {scored_df['source'].nunique()} ({', '.join(scored_df['source'].unique()[:8])})")
-    w(f"\n{'─'*65}"); w("  METHODS"); w(f"{'─'*65}")
-    w("  1. Dictionary     — oil-specific word lists + negation")
-    w("  2. Rule-Based     — scored lexicon with boosters (VADER-style)")
-    w("  3. TF-IDF + LR    — lightweight ML on synthetic training data")
-    if "vader_score" in scored_df.columns: w("  4. VADER          — NLTK pre-trained sentiment analyzer")
-    w(f"\n{'─'*65}"); w("  OVERALL SENTIMENT"); w(f"{'─'*65}")
+    w(f"\n{'-'*65}"); w("  METHODS"); w(f"{'-'*65}")
+    w("  1. Dictionary     -- oil-specific word lists + negation")
+    w("  2. Rule-Based     -- scored lexicon with boosters (VADER-style)")
+    w("  3. TF-IDF + LR    -- lightweight ML on synthetic training data")
+    if "vader_score" in scored_df.columns: w("  4. VADER          -- NLTK pre-trained sentiment analyzer")
+    w(f"\n{'-'*65}"); w("  OVERALL SENTIMENT"); w(f"{'-'*65}")
     lc = scored_df["consensus_label"].value_counts()
     for l in ["bullish","neutral","bearish"]:
         n=lc.get(l,0); pct=n/len(scored_df)*100
-        w(f"    {l:>8s} : {n:4d}  ({pct:5.1f}%)  {'█'*int(pct/2)}")
+        w(f"    {l:>8s} : {n:4d}  ({pct:5.1f}%)  {'#'*int(pct/2)}")
     avg = scored_df["consensus_score"].mean()
     tilt = "Bullish" if avg>0.05 else "Bearish" if avg<-0.05 else "Neutral"
-    w(f"\n    Overall score : {avg:+.3f}  →  {tilt}")
-    w(f"\n{'─'*65}"); w("  METHOD AGREEMENT"); w(f"{'─'*65}")
+    w(f"\n    Overall score : {avg:+.3f}  ->  {tilt}")
+    w(f"\n{'-'*65}"); w("  METHOD AGREEMENT"); w(f"{'-'*65}")
     for level,count in scored_df["agreement"].value_counts().sort_index(ascending=False).items():
         w(f"    {level} agree : {count:4d}  ({count/len(scored_df)*100:5.1f}%)")
     for title, subset in [("MOST BULLISH",scored_df.nlargest(5,"consensus_score")),("MOST BEARISH",scored_df.nsmallest(5,"consensus_score"))]:
-        w(f"\n{'─'*65}"); w(f"  {title}"); w(f"{'─'*65}")
+        w(f"\n{'-'*65}"); w(f"  {title}"); w(f"{'-'*65}")
         for _,r in subset.iterrows():
             w(f"    [{r['consensus_score']:+.3f}] {r['headline'][:85]}")
-            w(f"             — {r['source']}, {r['date']:%Y-%m-%d}")
-    w(f"\n{'─'*65}"); w("  DAILY SUMMARY"); w(f"{'─'*65}")
+            w(f"             -- {r['source']}, {r['date']:%Y-%m-%d}")
+    w(f"\n{'-'*65}"); w("  DAILY SUMMARY"); w(f"{'-'*65}")
     w(f"    {'Date':<12} {'Score':>8} {'#News':>6} {'Bull%':>7} {'Bear%':>7} {'Range':>7}")
     for d,r in daily_df.iterrows():
         w(f"    {d:%Y-%m-%d}  {r['mean_sentiment']:>+8.3f} {int(r['headline_count']):>6} {r['bullish_pct']:>7.0%} {r['bearish_pct']:>7.0%} {r['sentiment_range']:>7.3f}")
     report = "\n".join(L)
     with open(OUT_DIR/"report.txt","w") as f: f.write(report)
-    log.info(f"  ✓ {OUT_DIR/'report.txt'}"); return report
+    log.info(f"  [OK] {OUT_DIR/'report.txt'}"); return report
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # LIVE MODE
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 _live_running = True
 def _handle_stop(sig, frame):
     global _live_running; _live_running = False; log.info("\nShutting down...")
@@ -410,8 +410,8 @@ class LiveWindow:
             except: dt = datetime.now()
             self.headlines.append((dt, score, label, h["headline"], h.get("source","")))
             new += 1; self.total_new += 1
-            emoji = "🟢" if label=="bullish" else "🔴" if label=="bearish" else "⚪"
-            log.info(f"  {emoji} [{score:+.3f}] {h['headline'][:75]}")
+            icon = "[bull]" if label=="bullish" else "[bear]" if label=="bearish" else "[neut]"
+            log.info(f"  {icon} [{score:+.3f}] {h['headline'][:75]}")
         self._prune(); return new
 
     def snapshot(self):
@@ -452,14 +452,14 @@ def run_live(interval=15, window=120):
     global _live_running, log
     signal.signal(signal.SIGINT, _handle_stop); signal.signal(signal.SIGTERM, _handle_stop)
     LIVE_DIR.mkdir(parents=True, exist_ok=True)
-    log = setup_logging(PATHS.live_log)  # CHANGED: was LIVE_DIR/"listener.log"
-    log.info("="*55); log.info("  OIL NEWS — LIVE MODE"); log.info(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
+    log = setup_logging(PATHS.live_log)
+    log.info("="*55); log.info("  OIL NEWS -- LIVE MODE"); log.info(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
     log.info(f"  Poll: {interval} min | Window: {window} min | Output: {LIVE_DIR}/")
     log.info(f"  Ctrl+C to stop"); log.info("="*55)
     w = LiveWindow(window); cycle = 0
 
     while _live_running:
-        cycle += 1; log.info(f"\n── Cycle {cycle} ──")
+        cycle += 1; log.info(f"\n-- Cycle {cycle} --")
         raw = []
         for q in RSS_QUERIES:
             raw.extend(scrape_google_news_rss(query=q, max_items=20)); time.sleep(0.8)
@@ -467,13 +467,12 @@ def run_live(interval=15, window=120):
         new = w.add(raw); log.info(f"  {new} new headlines")
         snap = w.snapshot()
 
-        # CHANGED: was LIVE_DIR/"live_sentiment.json"
         with open(str(PATHS.live_sentiment),"w") as f: json.dump(snap, f, indent=2)
 
         # Append headline log
         if w.headlines:
             rows = [{"datetime":h[0].strftime("%Y-%m-%d %H:%M:%S"),"score":h[1],"label":h[2],"headline":h[3],"source":h[4]} for h in w.headlines]
-            lp = PATHS.live_headlines_log  # CHANGED: was LIVE_DIR/"headlines_log.csv"
+            lp = PATHS.live_headlines_log
             exists = lp.exists()
             if not exists:
                 pd.DataFrame(rows).to_csv(str(lp), index=False)
@@ -487,7 +486,7 @@ def run_live(interval=15, window=120):
             hr = {"timestamp":snap["timestamp"],"mean_sentiment":snap["mean_sentiment"],
                   "bullish_pct":snap["bullish_pct"],"bearish_pct":snap["bearish_pct"],
                   "headline_count":snap["headlines_in_window"],"signal":snap["signal"]}
-            hp = PATHS.live_history  # CHANGED: was LIVE_DIR/"sentiment_history.csv"
+            hp = PATHS.live_history
             exists = hp.exists()
             pd.DataFrame([hr]).to_csv(str(hp), mode="a", header=not exists, index=False)
 
@@ -496,39 +495,39 @@ def run_live(interval=15, window=120):
             m=snap["mean_sentiment"]; sig=snap["signal"]; n=snap["headlines_in_window"]
             b=snap["bullish_pct"]; be=snap["bearish_pct"]; ne=snap["neutral_pct"]
             std=snap["sentiment_std"]; strength=snap["signal_strength"]
-            icon = "📈" if "BULLISH" in sig else "📉" if "BEARISH" in sig else "➡️ "
+            icon = "[BULL]" if "BULLISH" in sig else "[BEAR]" if "BEARISH" in sig else "[ -- ]"
 
             bar_pos = int((m + 1) / 2 * 30); bar_pos = max(0, min(30, bar_pos))
-            score_bar = "─" * bar_pos + "●" + "─" * (30 - bar_pos)
+            score_bar = "-" * bar_pos + "|" + "-" * (30 - bar_pos)
 
             if std < 0.15: conf_text = "High agreement (headlines mostly say the same thing)"
             elif std < 0.30: conf_text = "Mixed signals (headlines disagree somewhat)"
             else: conf_text = "Very divided (headlines strongly contradict each other)"
 
-            if "STRONG BULLISH" in sig: meaning = "News is overwhelmingly positive — prices likely under upward pressure"
-            elif "MODERATE BULLISH" in sig: meaning = "More good news than bad — mild upward sentiment"
+            if "STRONG BULLISH" in sig: meaning = "News is overwhelmingly positive -- prices likely under upward pressure"
+            elif "MODERATE BULLISH" in sig: meaning = "More good news than bad -- mild upward sentiment"
             elif "SLIGHT BULLISH" in sig: meaning = "Slightly more positive headlines, but close to neutral"
-            elif "NEUTRAL" in sig: meaning = "Balanced mix of positive and negative news — no clear direction"
+            elif "NEUTRAL" in sig: meaning = "Balanced mix of positive and negative news -- no clear direction"
             elif "SLIGHT BEARISH" in sig: meaning = "Slightly more negative headlines, but close to neutral"
-            elif "MODERATE BEARISH" in sig: meaning = "More bad news than good — mild downward sentiment"
-            else: meaning = "News is overwhelmingly negative — prices likely under downward pressure"
+            elif "MODERATE BEARISH" in sig: meaning = "More bad news than good -- mild downward sentiment"
+            else: meaning = "News is overwhelmingly negative -- prices likely under downward pressure"
 
-            print(f"\n{'═' * 70}")
-            print(f"  OIL MARKET SENTIMENT — LIVE MONITOR")
+            print(f"\n{'=' * 70}")
+            print(f"  OIL MARKET SENTIMENT -- LIVE MONITOR")
             print(f"  {snap['timestamp']}  (updates every {interval} min)")
-            print(f"{'═' * 70}")
+            print(f"{'=' * 70}")
             print(f"\n  {icon}  SIGNAL: {sig}")
             print(f"  └─ {meaning}")
             print(f"\n  SENTIMENT SCORE: {m:>+.4f}")
-            print(f"  Bearish ←  {score_bar}  → Bullish")
+            print(f"  Bearish <-  {score_bar}  -> Bullish")
             print(f"  Scale: -1.0 (very bearish) to +1.0 (very bullish)")
             print(f"\n  HEADLINE BREAKDOWN:")
-            bull_bar = "█" * max(1, int(b * 30))
-            bear_bar = "█" * max(1, int(be * 30))
-            neut_bar = "█" * max(1, int(ne * 30))
-            print(f"    🟢 Bullish:  {b:>5.0%}  {bull_bar}")
-            print(f"    ⚪ Neutral:  {ne:>5.0%}  {neut_bar}")
-            print(f"    🔴 Bearish:  {be:>5.0%}  {bear_bar}")
+            bull_bar = "#" * max(1, int(b * 30))
+            bear_bar = "#" * max(1, int(be * 30))
+            neut_bar = "#" * max(1, int(ne * 30))
+            print(f"    [bull] Bullish:  {b:>5.0%}  {bull_bar}")
+            print(f"    [neut] Neutral:  {ne:>5.0%}  {neut_bar}")
+            print(f"    [bear] Bearish:  {be:>5.0%}  {bear_bar}")
             print(f"    (out of {n} headlines in the last {snap['window_minutes']} min)")
             print(f"\n  CONFIDENCE: {conf_text}")
             print(f"\n  THIS CYCLE: scraped {len(raw)} headlines, {new} were new")
@@ -537,14 +536,14 @@ def run_live(interval=15, window=120):
             if snap.get("latest_3"):
                 print(f"\n  LATEST HEADLINES:")
                 for h in snap["latest_3"]:
-                    e = "🟢" if h["label"]=="bullish" else "🔴" if h["label"]=="bearish" else "⚪"
+                    e = "[bull]" if h["label"]=="bullish" else "[bear]" if h["label"]=="bearish" else "[neut]"
                     print(f"    {e} [{h['score']:+.3f}] {h['headline'][:65]}")
-                    if h["source"]: print(f"       └─ {h['source']}")
+                    if h["source"]: print(f"       -- {h['source']}")
 
-            print(f"\n{'─' * 70}")
+            print(f"\n{'-' * 70}")
             print(f"  Files: {PATHS.live_sentiment} (read this from your model)")
             print(f"  Stop:  Ctrl+C")
-            print(f"{'─' * 70}\n")
+            print(f"{'-' * 70}\n")
 
         else:
             log.info("  Waiting for headlines...")
@@ -559,9 +558,9 @@ def run_live(interval=15, window=120):
     log.info(f"  STOPPED | Seen: {w.total_seen} | New: {w.total_new} | Files: {LIVE_DIR}/")
     log.info("="*55)
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # MAIN
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 def main_normal():
     log.info("="*55); log.info("  OIL NEWS SENTIMENT SCRAPER")
     log.info(f"  {datetime.now():%Y-%m-%d %H:%M:%S}"); log.info("="*55)
@@ -570,14 +569,14 @@ def main_normal():
     scored_df = classify_all(headlines)
     daily_df = build_daily_index(scored_df)
     generate_plots(scored_df, daily_df)
-    log.info("─"*55); log.info("SAVING FILES"); log.info("─"*55)
+    log.info("-"*55); log.info("SAVING FILES"); log.info("-"*55)
     scored_df.to_csv(OUT_DIR/"scored_headlines.csv", index=False)
-    log.info(f"  ✓ scored_headlines.csv ({len(scored_df)} rows)")
+    log.info(f"  [OK] scored_headlines.csv ({len(scored_df)} rows)")
     daily_df.to_csv(OUT_DIR/"daily_sentiment.csv")
-    log.info(f"  ✓ daily_sentiment.csv ({len(daily_df)} rows)")
+    log.info(f"  [OK] daily_sentiment.csv ({len(daily_df)} rows)")
     report = generate_report(scored_df, daily_df)
     print("\n"+report)
-    log.info(f"\n{'='*55}"); log.info(f"  DONE — {OUT_DIR}/"); log.info("="*55)
+    log.info(f"\n{'='*55}"); log.info(f"  DONE -- {OUT_DIR}/"); log.info("="*55)
     return scored_df, daily_df
 
 if __name__ == "__main__":

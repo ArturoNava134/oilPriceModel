@@ -9,8 +9,8 @@ Trains 3 models on historical price data and generates forecasts:
   3. Simple Moving Average Ensemble — baseline for comparison
 
 Outputs:
-  data/predictions/forecast.json  ← used by the dashboard
-  data/predictions/model_performance.json  ← accuracy metrics
+  data/predictions/forecast.json  <- used by the dashboard
+  data/predictions/model_performance.json  <- accuracy metrics
 
 Called by monitor.py after price data loads, or standalone:
   python predictor.py
@@ -34,23 +34,23 @@ PRED_DIR.mkdir(parents=True, exist_ok=True)
 FORECAST_DAYS = 5  # predict 5 trading days ahead
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # DATA LOADING
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def load_data():
     """Load the featured price CSV."""
     if not PATHS.price_featured.exists():
-        print("  ✗ No price data. Run oil_data_collector.py first.")
+        print("  [ERROR] No price data. Run oil_data_collector.py first.")
         return None
     df = pd.read_csv(str(PATHS.price_featured), index_col=0, parse_dates=True)
-    print(f"  ✓ Loaded {len(df)} rows, latest: {df.index[-1].date()}")
+    print(f"  [OK] Loaded {len(df)} rows, latest: {df.index[-1].date()}")
     return df
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # MODEL 1: ARIMA
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def run_arima(price_series):
     """
@@ -84,7 +84,7 @@ def run_arima(price_series):
             np.sign(np.diff(test.values)) == np.sign(np.diff(bt_pred.values))
         ) * 100
 
-        print(f"  [ARIMA] ✓ MAE: ${mae:.2f}, MAPE: {mape:.1f}%, Direction: {direction_correct:.0f}%")
+        print(f"  [ARIMA] [OK] MAE: ${mae:.2f}, MAPE: {mape:.1f}%, Direction: {direction_correct:.0f}%")
 
         return {
             "model": "ARIMA(5,1,2)",
@@ -98,16 +98,16 @@ def run_arima(price_series):
         }
 
     except ImportError:
-        print("  [ARIMA] ✗ statsmodels not installed. Run: pip install statsmodels")
+        print("  [ARIMA] [ERROR] statsmodels not installed. Run: pip install statsmodels")
         return {"model": "ARIMA", "status": "missing_dependency", "forecast": []}
     except Exception as e:
-        print(f"  [ARIMA] ✗ Error: {e}")
+        print(f"  [ARIMA] [ERROR] Error: {e}")
         return {"model": "ARIMA", "status": f"error: {e}", "forecast": []}
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # MODEL 2: XGBOOST
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def run_xgboost(df):
     """
@@ -127,7 +127,7 @@ def run_xgboost(df):
 
         data = df[feature_cols + ['Target_Return_1d']].dropna()
         if len(data) < 100:
-            print("  [XGBoost] ✗ Not enough data")
+            print("  [XGBoost] [ERROR] Not enough data")
             return {"model": "XGBoost", "status": "insufficient_data", "forecast": []}
 
         X = data[feature_cols]
@@ -172,7 +172,7 @@ def run_xgboost(df):
         avg_price = df['WTI_Crude_Close'].tail(20).mean()
         mae_dollars = mae_return * avg_price
 
-        print(f"  [XGBoost] ✓ MAE: ${mae_dollars:.2f}, Direction: {direction_correct:.0f}%")
+        print(f"  [XGBoost] [OK] MAE: ${mae_dollars:.2f}, Direction: {direction_correct:.0f}%")
         print(f"  [XGBoost] Top 3 features: {', '.join([f[0] for f in top_features[:3]])}")
 
         return {
@@ -188,16 +188,16 @@ def run_xgboost(df):
         }
 
     except ImportError:
-        print("  [XGBoost] ✗ xgboost not installed. Run: pip install xgboost")
+        print("  [XGBoost] [ERROR] xgboost not installed. Run: pip install xgboost")
         return {"model": "XGBoost", "status": "missing_dependency", "forecast": []}
     except Exception as e:
-        print(f"  [XGBoost] ✗ Error: {e}")
+        print(f"  [XGBoost] [ERROR] Error: {e}")
         return {"model": "XGBoost", "status": f"error: {e}", "forecast": []}
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # MODEL 3: MOVING AVERAGE BASELINE
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def run_baseline(price_series):
     """
@@ -226,7 +226,7 @@ def run_baseline(price_series):
     mae = np.mean(np.abs(np.array(test_actual) - np.array(test_pred)))
     mape = np.mean(np.abs((np.array(test_actual) - np.array(test_pred)) / np.array(test_actual))) * 100
 
-    print(f"  [Baseline] ✓ MAE: ${mae:.2f}, MAPE: {mape:.1f}%")
+    print(f"  [Baseline] [OK] MAE: ${mae:.2f}, MAPE: {mape:.1f}%")
 
     return {
         "model": "Trend Baseline",
@@ -236,9 +236,9 @@ def run_baseline(price_series):
     }
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # ENSEMBLE & OUTPUT
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def build_ensemble(results):
     """Average forecasts from all successful models."""
@@ -281,7 +281,7 @@ def run_predictions(df=None):
 
     price_col = "WTI_Crude_Close"
     if price_col not in df.columns:
-        print(f"  ✗ {price_col} not found")
+        print(f"  [ERROR] {price_col} not found")
         return None
 
     price = df[price_col]
@@ -342,22 +342,22 @@ def run_predictions(df=None):
     forecast_path = PRED_DIR / "forecast.json"
     with open(str(forecast_path), "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\n  ✓ Saved: {forecast_path}")
+    print(f"\n  [OK] Saved: {forecast_path}")
 
     # Print summary
-    print(f"\n  {'━' * 50}")
+    print(f"\n  {'-' * 50}")
     print(f"  FORECAST SUMMARY ({FORECAST_DAYS}-day)")
-    print(f"  {'━' * 50}")
+    print(f"  {'-' * 50}")
     print(f"  Current:  ${last_price}")
     if ensemble:
         print(f"  Forecast: ${ensemble[-1]} ({change_pct:+.2f}%)")
-        print(f"  Direction: {direction} — {confidence}")
-        print(f"  Day-by-day: {' → '.join([f'${p}' for p in ensemble])}")
+        print(f"  Direction: {direction} -- {confidence}")
+        print(f"  Day-by-day: {' -> '.join([f'${p}' for p in ensemble])}")
     print(f"\n  Model results:")
     for r in results:
-        status = "✓" if r["status"] == "ok" else "✗"
+        status = "[OK]" if r["status"] == "ok" else "[ERROR]"
         forecast_str = f"${r['forecast'][-1]}" if r["forecast"] else "N/A"
-        print(f"    {status} {r['model']:<20s} → {forecast_str}")
+        print(f"    {status} {r['model']:<20s} -> {forecast_str}")
         if r.get("metrics"):
             m = r["metrics"]
             parts = []

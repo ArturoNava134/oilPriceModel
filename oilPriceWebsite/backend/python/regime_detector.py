@@ -16,11 +16,11 @@ THREE DETECTION METHODS:
   3. Rule-Based — explicit thresholds (drawdown > 20% = crisis)
 
 OUTPUTS (in data/regime/):
-  regime_labels.csv              ← every trading day labeled with its regime
-  regime_factor_importance.csv   ← XGBoost feature importance PER regime
-  regime_report.txt              ← stats, transitions, crisis periods
-  regime_summary.json            ← for the API/frontend
-  plots/                         ← 6 visualization charts
+  regime_labels.csv              <- every trading day labeled with its regime
+  regime_factor_importance.csv   <- XGBoost feature importance PER regime
+  regime_report.txt              <- stats, transitions, crisis periods
+  regime_summary.json            <- for the API/frontend
+  plots/                         <- 6 visualization charts
 
 HOW TO RUN:
   pip install hmmlearn xgboost
@@ -49,16 +49,16 @@ REGIME_DIR.mkdir(parents=True, exist_ok=True)
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # DATA LOADING
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def load_data():
     if not PATHS.price_featured.exists():
-        print("  ✗ No price data found. Run oil_data_collector.py first.")
+        print("  [ERROR] No price data found. Run oil_data_collector.py first.")
         return None
     df = pd.read_csv(str(PATHS.price_featured), index_col=0, parse_dates=True)
-    print(f"  ✓ Loaded {len(df)} rows, {df.index.min().date()} → {df.index.max().date()}")
+    print(f"  [OK] Loaded {len(df)} rows, {df.index.min().date()} -> {df.index.max().date()}")
     return df
 
 
@@ -88,13 +88,13 @@ def prepare_regime_features(df):
         features["rsi"] = df["RSI_14"]
 
     features = features.dropna()
-    print(f"  ✓ Regime features: {len(features)} rows, {features.shape[1]} columns")
+    print(f"  [OK] Regime features: {len(features)} rows, {features.shape[1]} columns")
     return features
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # METHOD 1: HIDDEN MARKOV MODEL
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def detect_hmm(features, n_states=3):
     """
@@ -135,20 +135,20 @@ def detect_hmm(features, n_states=3):
         label_map = {sorted_states[i]: names[i] for i in range(n_states)}
 
         labels = pd.Series([label_map[s] for s in states], index=features.index, name="hmm_regime")
-        print(f"  [HMM] ✓ States: {dict(labels.value_counts())}")
+        print(f"  [HMM] [OK] States: {dict(labels.value_counts())}")
         return labels
 
     except ImportError:
-        print("  [HMM] ✗ hmmlearn not installed. Run: pip install hmmlearn")
+        print("  [HMM] [ERROR] hmmlearn not installed. Run: pip install hmmlearn")
         return None
     except Exception as e:
-        print(f"  [HMM] ✗ Error: {e}")
+        print(f"  [HMM] [ERROR] Error: {e}")
         return None
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # METHOD 2: K-MEANS CLUSTERING
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def detect_kmeans(features, n_clusters=3):
     """
@@ -180,17 +180,17 @@ def detect_kmeans(features, n_clusters=3):
         label_map = {sorted_clusters[i]: names[i] for i in range(n_clusters)}
 
         labels = pd.Series([label_map[c] for c in clusters], index=features.index, name="kmeans_regime")
-        print(f"  [K-Means] ✓ Clusters: {dict(labels.value_counts())}")
+        print(f"  [K-Means] [OK] Clusters: {dict(labels.value_counts())}")
         return labels
 
     except Exception as e:
-        print(f"  [K-Means] ✗ Error: {e}")
+        print(f"  [K-Means] [ERROR] Error: {e}")
         return None
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # METHOD 3: RULE-BASED
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def detect_rulebased(features):
     """
@@ -212,13 +212,13 @@ def detect_rulebased(features):
         )
         labels[bull_mask] = "bull"
 
-    print(f"  [Rules] ✓ Regimes: {dict(labels.value_counts())}")
+    print(f"  [Rules] [OK] Regimes: {dict(labels.value_counts())}")
     return labels
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # FACTOR IMPORTANCE PER REGIME
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def compute_factor_importance(df, regime_labels):
     """
@@ -230,7 +230,7 @@ def compute_factor_importance(df, regime_labels):
     try:
         from xgboost import XGBRegressor
     except ImportError:
-        print("  ✗ xgboost not installed. Run: pip install xgboost")
+        print("  [ERROR] xgboost not installed. Run: pip install xgboost")
         return None
 
     common_idx = df.index.intersection(regime_labels.index)
@@ -243,7 +243,7 @@ def compute_factor_importance(df, regime_labels):
     ] and df_aligned[c].dtype in ['float64', 'int64', 'float32', 'int32']]
 
     if 'Target_Return_1d' not in df_aligned.columns:
-        print("  ✗ No target column found")
+        print("  [ERROR] No target column found")
         return None
 
     results = {}
@@ -277,16 +277,16 @@ def compute_factor_importance(df, regime_labels):
     return results
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # VISUALIZATIONS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 COLORS = {"bull": "#27ae60", "bear": "#e67e22", "crisis": "#e74c3c"}
 
 def _save(fig, name):
     fig.savefig(PLOT_DIR / name, dpi=170, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"    ✓ {name}")
+    print(f"    [OK] {name}")
 
 
 def plot_price_with_regimes(df, labels):
@@ -449,9 +449,9 @@ def plot_regime_duration(labels):
     _save(fig, "06_regime_duration.png")
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # REPORT
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def generate_report(features, labels, importance_by_regime):
     L = []; w = L.append
@@ -460,12 +460,12 @@ def generate_report(features, labels, importance_by_regime):
     w(f"  {datetime.now():%Y-%m-%d %H:%M:%S}")
     w("=" * 65)
 
-    w(f"\n  Date range: {labels.index.min().date()} → {labels.index.max().date()}")
+    w(f"\n  Date range: {labels.index.min().date()} -> {labels.index.max().date()}")
     w(f"  Total trading days: {len(labels)}")
 
-    w(f"\n{'─' * 65}")
+    w(f"\n{'-' * 65}")
     w("  REGIME BREAKDOWN")
-    w(f"{'─' * 65}")
+    w(f"{'-' * 65}")
     for regime in ["bull", "bear", "crisis"]:
         count = (labels == regime).sum()
         pct = count / len(labels) * 100
@@ -474,21 +474,21 @@ def generate_report(features, labels, importance_by_regime):
         w(f"    {regime.upper():>8s}: {count:>5d} days ({pct:>5.1f}%)  "
           f"avg annual return: {avg_ret:>+6.1f}%  avg vol: {avg_vol:>5.1f}%")
 
-    w(f"\n{'─' * 65}")
+    w(f"\n{'-' * 65}")
     w("  KEY INSIGHT")
-    w(f"{'─' * 65}")
+    w(f"{'-' * 65}")
     w("")
     w("  The risk factors driving oil prices are DIFFERENT in each regime:")
 
     if importance_by_regime:
         for regime, factors in importance_by_regime.items():
-            w(f"\n    {regime.upper()} MARKET — top 5 factors:")
+            w(f"\n    {regime.upper()} MARKET -- top 5 factors:")
             for i, (feat, imp) in enumerate(factors[:5], 1):
                 w(f"      #{i} {feat} (importance: {imp:.4f})")
 
-    w(f"\n{'─' * 65}")
+    w(f"\n{'-' * 65}")
     w("  CURRENT STATE")
-    w(f"{'─' * 65}")
+    w(f"{'-' * 65}")
     current = labels.iloc[-1]
     w(f"    Current regime: {current.upper()}")
     w(f"    As of: {labels.index[-1].date()}")
@@ -504,13 +504,13 @@ def generate_report(features, labels, importance_by_regime):
     report = "\n".join(L)
     with open(str(REGIME_DIR / "regime_report.txt"), "w") as f:
         f.write(report)
-    print(f"\n  ✓ Report saved")
+    print(f"\n  [OK] Report saved")
     return report
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 # MAIN
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# =====================================================
 
 def main():
     print("\n" + "=" * 60)
@@ -523,7 +523,7 @@ def main():
 
     features = prepare_regime_features(df)
     if len(features) < 100:
-        print("  ✗ Not enough data")
+        print("  [ERROR] Not enough data")
         return
 
     # Run all 3 methods
@@ -548,10 +548,10 @@ def main():
     if kmeans_labels is not None: labels_df["kmeans_regime"] = kmeans_labels
     labels_df["rule_regime"] = rule_labels
     labels_df.to_csv(str(REGIME_DIR / "regime_labels.csv"))
-    print(f"  ✓ Labels saved")
+    print(f"  [OK] Labels saved")
 
     # Factor importance per regime
-    print("\n" + "─" * 60)
+    print("\n" + "-" * 60)
     importance = compute_factor_importance(df, primary_labels)
 
     if importance:
@@ -560,12 +560,12 @@ def main():
             for feat, imp in factors:
                 rows.append({"regime": regime, "feature": feat, "importance": round(imp, 4)})
         pd.DataFrame(rows).to_csv(str(REGIME_DIR / "regime_factor_importance.csv"), index=False)
-        print(f"  ✓ Factor importance saved")
+        print(f"  [OK] Factor importance saved")
 
     # Plots
-    print("\n" + "─" * 60)
+    print("\n" + "-" * 60)
     print("  GENERATING PLOTS")
-    print("─" * 60)
+    print("-" * 60)
 
     plot_price_with_regimes(df, primary_labels)
     plot_regime_characteristics(features, primary_labels)
@@ -593,12 +593,12 @@ def main():
         json.dump(summary, f, indent=2)
 
     print(f"\n{'=' * 60}")
-    print(f"  DONE — {REGIME_DIR}/")
-    print(f"  • regime_labels.csv")
-    print(f"  • regime_factor_importance.csv")
-    print(f"  • regime_report.txt")
-    print(f"  • regime_summary.json")
-    print(f"  • plots/ (6 charts)")
+    print(f"  DONE -- {REGIME_DIR}/")
+    print(f"  - regime_labels.csv")
+    print(f"  - regime_factor_importance.csv")
+    print(f"  - regime_report.txt")
+    print(f"  - regime_summary.json")
+    print(f"  - plots/ (6 charts)")
     print(f"{'=' * 60}")
 
 

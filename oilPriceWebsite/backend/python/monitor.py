@@ -276,23 +276,23 @@ def compute_risk(price_signals, news_metrics, news_weight):
 
 def print_dashboard(ps, nm, risk, nw, nws, new_h, cycle, interval):
     bar_pos = int((risk["score"]+1)/2*40); bar_pos = max(0,min(40,bar_pos))
-    risk_bar = "▓"*bar_pos + "█" + "░"*(40-bar_pos)
+    risk_bar = "#"*bar_pos + "|" + "."*(40-bar_pos)
     print(f"\033[2J\033[H", end="")
-    print(f"{'═'*72}\n  OIL PRICE RISK MONITOR\n  {datetime.now():%Y-%m-%d %H:%M:%S}  •  Cycle {cycle}  •  Updates every {interval} min\n{'═'*72}")
-    icon = "✅" if risk["score"]>0.15 else ("⚠️ " if risk["score"]>-0.15 else "🚨")
-    print(f"\n  ┌{'─'*68}┐\n  │  {icon} {risk['label']:<63s}│\n  │  Risk Score: {risk['score']:>+.4f}{'':>49s}│\n  │  High Risk ← {risk_bar} → Low Risk   │\n  └{'─'*68}┘")
+    print(f"{'='*72}\n  OIL PRICE RISK MONITOR\n  {datetime.now():%Y-%m-%d %H:%M:%S}  -  Cycle {cycle}  -  Updates every {interval} min\n{'='*72}")
+    icon = "[OK]" if risk["score"]>0.15 else ("[!!]" if risk["score"]>-0.15 else "[!!]")
+    print(f"\n  +{'-'*68}+\n  |  {icon} {risk['label']:<63s}|\n  |  Risk Score: {risk['score']:>+.4f}{'':>49s}|\n  |  High Risk <- {risk_bar} -> Low Risk   |\n  +{'-'*68}+")
     if "price" in ps:
         r1=ps.get('return_1d',0); r5=ps.get('return_5d',0); r20=ps.get('return_20d',0)
-        c1="🟢" if r1>0 else "🔴"; c5="🟢" if r5>0 else "🔴"; c20="🟢" if r20>0 else "🔴"
+        c1="(+)" if r1>0 else "(-)"; c5="(+)" if r5>0 else "(-)"; c20="(+)" if r20>0 else "(-)"
         print(f"\n  PRICE: ${ps['price']}  ({ps.get('price_date','?')})\n    {c1} Day:{r1:>+.2f}%  {c5} Week:{r5:>+.2f}%  {c20} Month:{r20:>+.2f}%")
     if risk["components"]:
         print(f"\n  SIGNALS:")
         for name,score,weight in risk["components"]:
-            bl=int(abs(score)*15); d=f"🟢 {'█'*bl}{'░'*(15-bl)}" if score>0.05 else (f"🔴 {'█'*bl}{'░'*(15-bl)}" if score<-0.05 else f"⚪ {'░'*15}")
+            bl=int(abs(score)*15); d=f"[+] {'#'*bl}{'.'*(15-bl)}" if score>0.05 else (f"[-] {'#'*bl}{'.'*(15-bl)}" if score<-0.05 else f"[=] {'.'*15}")
             print(f"    {name:<25s} {d}  {score:>+.3f}  ({weight:.0%})")
     if nm.get("active"):
-        print(f"\n  NEWS: score={nm['mean']:+.4f} | 🟢{nm['bullish_pct']:.0%} ⚪{nm['neutral_pct']:.0%} 🔴{nm['bearish_pct']:.0%} | {nm['count']} headlines | weight:{nw:.0%}")
-    print(f"\n{'─'*72}\n  Output: {PATHS.monitor_dir}  │  Ctrl+C to stop\n{'─'*72}")
+        print(f"\n  NEWS: score={nm['mean']:+.4f} | bull:{nm['bullish_pct']:.0%} neut:{nm['neutral_pct']:.0%} bear:{nm['bearish_pct']:.0%} | {nm['count']} headlines | weight:{nw:.0%}")
+    print(f"\n{'-'*72}\n  Output: {PATHS.monitor_dir}  |  Ctrl+C to stop\n{'-'*72}")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
