@@ -83,9 +83,9 @@ class PriceState:
             if PATHS.price_featured.exists():
                 self.df = pd.read_csv(str(PATHS.price_featured), index_col=0, parse_dates=True)
                 self.last_refresh = datetime.now()
-                log.info(f"  ✓ Price data refreshed: {len(self.df)} rows")
+                log.info(f"  [Ok] Price data refreshed: {len(self.df)} rows")
         except Exception as e:
-            log.warning(f"  ✗ Collector failed: {e}")
+            log.warning(f" Collector failed: {e}")
 
     def _extract_signals(self):
         if self.df is None or len(self.df) == 0: return

@@ -30,10 +30,10 @@ const db = mysql.createPool({
 (async () => {
   try {
     const conn = await db.getConnection();
-    console.log('  ✓ MySQL connected');
+    console.log('  [Ok] MySQL connected');
     conn.release();
   } catch (e) {
-    console.error('  ✗ MySQL connection failed:', e.message);
+    console.error('  MySQL connection failed:', e.message);
     console.error('    Check your .env DB_HOST/DB_USER/DB_PASSWORD/DB_NAME');
   }
 })();
@@ -570,7 +570,7 @@ app.listen(PORT, () => {
   console.log(`  Data:    ${DATA_DIR}`);
   console.log(`\n  File status:`);
   Object.entries(PATHS).forEach(([key, val]) => {
-    const exists = fs.existsSync(val) ? '✓' : '✗';
+    const exists = fs.existsSync(val) ? '[Ok]' : '[Error]';
     console.log(`    ${exists} ${key}`);
   });
 
